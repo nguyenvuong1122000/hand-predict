@@ -1,0 +1,2 @@
+vietocr~=0.3.2
+Pillow~=8.0.1
