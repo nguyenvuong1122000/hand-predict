@@ -31,7 +31,7 @@ def reconstruct_key(txt):
     return dict(zip(temp, letters_ordered_by_freq[:len(temp)]))
 
 
-def encode_raw(txt):
+def decode_raw(txt):
     dict = reconstruct_key(txt)
     ans = ''
     for i in txt:
@@ -45,7 +45,7 @@ def encode_raw(txt):
     return ans
 
 
-def encode(txt):
+def decode(txt):
     data = [
         ('r', 'E'), ('b', 'T'), ('m', 'A'),
         ('k', 'N'), ('j', 'O'), ('w', 'I'),
