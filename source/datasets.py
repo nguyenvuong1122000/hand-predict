@@ -8,9 +8,8 @@ import numpy as np
 from xml.etree import ElementTree as ET
 from torch.utils.data import Dataset
 from utils import *
-PATH = "/home/vuong/PycharmProjects/hand-predict/chess_data"
-
-
+PATH = "/home/vuong/PycharmProjects/hand-predict/hand-sign/data_ver2/data"
+c = 0
 def read_content(xml_file):
 
     tree = ET.parse(xml_file)
@@ -42,11 +41,15 @@ def read_content(xml_file):
 
 def one_hot_encode(folder):
     X = []
+    X = X + ["."]
     for filename in os.listdir(folder):
         if not filename.__contains__(".xml"):
             continue
         filename, list_with_all_boxes, labels, difficult = read_content(os.path.join(folder,filename))
         X = X + labels
+        if labels == ["."]:
+            print(filename)
+
     onehot = LabelEncoder()
     onehot.fit(np.array(X).reshape(-1,1))
     return onehot
@@ -67,15 +70,16 @@ class DataLoader(Dataset):
         annotation  = self.annotations[item]
 
         image, boxes, labels, difficult = read_content(os.path.join(self.folder, annotation))
-
-
         image = Image.open(os.path.join(self.folder, image))
-
         boxes = torch.FloatTensor(boxes)
         labels = torch.FloatTensor(self.enc.transform(np.array(labels).reshape(-1,1)))
+
+
+        # if (boxes.nelement() != 4):
+        #     print(annotation)
         image, boxes, labels, difficulties = transform(image, boxes, labels, difficult, split=self.split)
 
-        return image, boxes, labels, difficulties
+        return image, boxes, labels,difficulties, annotation
     def collate_fn(self, batch):
         """
         Since each image may have a different number of objects, we need a collate function (to be passed to the DataLoader).

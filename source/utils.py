@@ -10,7 +10,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Label map
 voc_labels = string.ascii_uppercase
 label_map = {k: v for v, k in enumerate(voc_labels)}
-label_map['background'] = 26
+label_map['background'] = 0
 rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
 
 # Color map for bounding boxes of detected objects from https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
@@ -139,6 +139,8 @@ def decimate(tensor, m):
                                          index=torch.arange(start=0, end=tensor.size(d), step=m[d]).long())
 
     return tensor
+
+
 
 
 def calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties):
@@ -534,6 +536,7 @@ def resize(image, boxes, dims=(300, 300), return_percent_coords=True):
     :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
     :return: resized image, updated bounding box coordinates (or fractional coordinates, in which case they remain the same)
     """
+    image = image.convert('RGB')
     # Resize image
     new_image = FT.resize(image, dims)
 
@@ -584,13 +587,13 @@ def transform(image, boxes, labels, difficulties, split):
     Apply the transformations above.
 
     :param image: image, a PIL Image
-    :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
+    :paraap boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
     :param labels: labels of objects, a tensor of dimensions (n_objects)
     :param difficulties: difficulties of detection of these objects, a tensor of dimensions (n_objects)
     :param split: one of 'TRAIN' or 'TEST', since different sets of transformations are applied
     :return: transformed image, transformed bounding box coordinates, transformed labels, transformed difficulties
     """
-    assert split in {'train', 'test'}
+    assert split in {'train', 'test', 'valid'}
 
     # Mean and standard deviation of ImageNet data that our base VGG from torchvision was trained on
     # see: https://pytorch.org/docs/stable/torchvision/models.html
@@ -647,7 +650,9 @@ def adjust_learning_rate(optimizer, scale):
     for param_group in optimizer.param_groups:
         param_group['lr'] = param_group['lr'] * scale
     print("DECAYING learning rate.\n The new LR is %f\n" % (optimizer.param_groups[1]['lr'],))
+def print_lr(optimizer):
 
+    print("DECAYING learning rate.\n The new LR is %f\n" % (optimizer.param_groups[1]['lr'],))
 
 def accuracy(scores, targets, k):
     """
@@ -673,6 +678,7 @@ def save_checkpoint(epoch, model, optimizer):
     :param model: model
     :param optimizer: optimizer
     """
+
     state = {'epoch': epoch,
              'model': model,
              'optimizer': optimizer}
