@@ -5,11 +5,15 @@ import random
 import xml.etree.ElementTree as ET
 import torchvision.transforms.functional as FT
 import string
+from matplotlib import pyplot
+
+from matplotlib import pyplot
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Label map
+
 voc_labels = string.ascii_uppercase
-label_map = {k: v for v, k in enumerate(voc_labels)}
+label_map = {k: v+1 for v, k in enumerate(voc_labels)}
 label_map['background'] = 0
 rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
 
@@ -184,7 +188,8 @@ def calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, tr
     det_scores = torch.cat(det_scores, dim=0)  # (n_detections)
 
     assert det_images.size(0) == det_boxes.size(0) == det_labels.size(0) == det_scores.size(0)
-
+    precision = list()
+    recall = list()
     # Calculate APs for each class (except background)
     average_precisions = torch.zeros((n_classes - 1), dtype=torch.float)  # (n_classes - 1)
     for c in range(1, n_classes):
@@ -257,7 +262,8 @@ def calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, tr
         cumul_precision = cumul_true_positives / (
                 cumul_true_positives + cumul_false_positives + 1e-10)  # (n_class_detections)
         cumul_recall = cumul_true_positives / n_easy_class_objects  # (n_class_detections)
-
+        precision.append(cumul_precision)
+        recall.append(cumul_recall)
         # Find the mean of the maximum of the precisions corresponding to recalls above the threshold 't'
         recall_thresholds = torch.arange(start=0, end=1.1, step=.1).tolist()  # (11)
         precisions = torch.zeros((len(recall_thresholds)), dtype=torch.float).to(device)  # (11)
@@ -275,8 +281,7 @@ def calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, tr
     # Keep class-wise average precisions in a dictionary
     average_precisions = {rev_label_map[c + 1]: v for c, v in enumerate(average_precisions.tolist())}
 
-    return average_precisions, mean_average_precision
-
+    return precision, recall, average_precisions, mean_average_precision
 
 def xy_to_cxcy(xy):
     """
@@ -381,16 +386,7 @@ def find_jaccard_overlap(set_1, set_2):
 # From https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
 
 def expand(image, boxes, filler):
-    """
-    Perform a zooming out operation by placing the image in a larger canvas of filler material.
 
-    Helps to learn to detect smaller objects.
-
-    :param image: image, a tensor of dimensions (3, original_h, original_w)
-    :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
-    :param filler: RBG values of the filler material, a list like [R, G, B]
-    :return: expanded image, updated bounding box coordinates
-    """
     # Calculate dimensions of proposed expanded (zoomed-out) image
     original_h = image.size(1)
     original_w = image.size(2)
@@ -420,19 +416,7 @@ def expand(image, boxes, filler):
 
 
 def random_crop(image, boxes, labels, difficulties):
-    """
-    Performs a random crop in the manner stated in the paper. Helps to learn to detect larger and partial objects.
 
-    Note that some objects may be cut out entirely.
-
-    Adapted from https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-
-    :param image: image, a tensor of dimensions (3, original_h, original_w)
-    :param boxes: bounding boxes in boundary coordinates, a tensor of dimensions (n_objects, 4)
-    :param labels: labels of objects, a tensor of dimensions (n_objects)
-    :param difficulties: difficulties of detection of these objects, a tensor of dimensions (n_objects)
-    :return: cropped image, updated bounding box coordinates, updated labels, updated difficulties
-    """
     original_h = image.size(1)
     original_w = image.size(2)
     # Keep choosing a minimum overlap until a successful crop is made
@@ -718,3 +702,4 @@ def clip_gradient(optimizer, grad_clip):
         for param in group['params']:
             if param.grad is not None:
                 param.grad.data.clamp_(-grad_clip, grad_clip)
+
